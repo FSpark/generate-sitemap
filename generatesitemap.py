@@ -32,6 +32,7 @@ import os
 import os.path
 import subprocess
 from datetime import datetime
+from urllib import parse
 
 def gatherfiles(extensionsToInclude) :
     """Walks the directory tree discovering
@@ -211,7 +212,7 @@ def lastmod(f) :
         mod = datetime.now().astimezone().replace(microsecond=0).isoformat()
     return mod
 
-def urlstring(f, baseUrl, dropExtension=False) :
+def urlstring(f, baseUrl, dropExtension=False, encodeURI=False) :
     """Forms a string with the full url from a filename and base url.
 
     Keyword arguments:
@@ -233,6 +234,8 @@ def urlstring(f, baseUrl, dropExtension=False) :
         u = u[1:]
     elif (len(u)==0 or u[0]!="/") and (len(baseUrl)==0 or baseUrl[-1]!="/") :
         u = "/" + u
+    if encodeURI :
+        u = parse.quote(u)
     return baseUrl + u
 
 xmlSitemapEntryTemplate = """<url>
@@ -240,7 +243,7 @@ xmlSitemapEntryTemplate = """<url>
 <lastmod>{1}</lastmod>
 </url>"""	
 	
-def xmlSitemapEntry(f, baseUrl, dateString, dropExtension=False) :
+def xmlSitemapEntry(f, baseUrl, dateString, dropExtension=False, encodeURI=False) :
     """Forms a string with an entry formatted for an xml sitemap
     including lastmod date.
 
@@ -250,9 +253,9 @@ def xmlSitemapEntry(f, baseUrl, dateString, dropExtension=False) :
     dateString - lastmod date correctly formatted
     dropExtension - true to drop extensions of .html from the filename in urls
     """
-    return xmlSitemapEntryTemplate.format(urlstring(f, baseUrl, dropExtension), dateString)
+    return xmlSitemapEntryTemplate.format(urlstring(f, baseUrl, dropExtension, encodeURI), dateString)
 
-def writeTextSitemap(files, baseUrl, dropExtension=False) :
+def writeTextSitemap(files, baseUrl, dropExtension=False, encodeURI=False) :
     """Writes a plain text sitemap to the file sitemap.txt.
 
     Keyword Arguments:
@@ -262,10 +265,10 @@ def writeTextSitemap(files, baseUrl, dropExtension=False) :
     """
     with open("sitemap.txt", "w") as sitemap :
         for f in files :
-            sitemap.write(urlstring(f, baseUrl, dropExtension))
+            sitemap.write(urlstring(f, baseUrl, dropExtension, encodeURI))
             sitemap.write("\n")
             
-def writeXmlSitemap(files, baseUrl, dropExtension=False) :
+def writeXmlSitemap(files, baseUrl, dropExtension=False, encodeURI=False) :
     """Writes an xml sitemap to the file sitemap.xml.
 
     Keyword Arguments:
@@ -277,7 +280,7 @@ def writeXmlSitemap(files, baseUrl, dropExtension=False) :
         sitemap.write('<?xml version="1.0" encoding="UTF-8"?>\n')
         sitemap.write('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n')
         for f in files :
-            sitemap.write(xmlSitemapEntry(f, baseUrl, lastmod(f), dropExtension))
+            sitemap.write(xmlSitemapEntry(f, baseUrl, lastmod(f), dropExtension, encodeURI))
             sitemap.write("\n")
         sitemap.write('</urlset>\n')
 
@@ -290,6 +293,7 @@ if __name__ == "__main__" :
     sitemapFormat = sys.argv[5]
     additionalExt = set(sys.argv[6].lower().replace(",", " ").replace(".", " ").split())
     dropExtension = sys.argv[7]=="true"
+    encodeURI = sys.argv[8]=="true"
 
     os.chdir(websiteRoot)
     blockedPaths = parseRobotsTxt()
@@ -302,10 +306,10 @@ if __name__ == "__main__" :
     if pathToSitemap[-1] != "/" :
         pathToSitemap += "/"
     if sitemapFormat == "xml" :
-        writeXmlSitemap(files, baseUrl, dropExtension)
+        writeXmlSitemap(files, baseUrl, dropExtension, encodeURI)
         pathToSitemap += "sitemap.xml"
     else :
-        writeTextSitemap(files, baseUrl, dropExtension)
+        writeTextSitemap(files, baseUrl, dropExtension, encodeURI)
         pathToSitemap += "sitemap.txt"
 
     print("::set-output name=sitemap-path::" + pathToSitemap)
